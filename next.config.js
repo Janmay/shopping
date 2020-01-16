@@ -3,6 +3,11 @@ const slash = require("slash2");
 const postcssNormalize = require("postcss-normalize");
 const OptimizeCSSAssetsPlugin = require("optimize-css-assets-webpack-plugin");
 const safePostCssParser = require("postcss-safe-parser");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const postcssFlexFixPlugin = require("postcss-flexbugs-fixes");
+const postcssPresetEnvPlugin = require("postcss-preset-env");
+const BundleAnalyzerPlugin = require("webpack-bundle-analyzer")
+  .BundleAnalyzerPlugin;
 
 const appDirectory = process.cwd();
 const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
@@ -36,8 +41,19 @@ const getCSSModuleLocalIdent = (
 };
 
 // webpack config
+// const withSass = require('@zeit/next-sass');
+// module.exports = withSass({
+//   cssModules: true,
+//   webpack(config, options) {
+//     console.log(JSON.stringify(config.module.rules))
+//     return config;
+//   }
+// });
 module.exports = {
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+  target: "server",
+  distDir: "build",
+  poweredByHeader: false,
+  webpack: (config, { dev, isServer, defaultLoaders }) => {
     // eslint
     config.module.rules.unshift({
       test: /\.(js|jsx|ts|tsx)$/,
@@ -52,8 +68,27 @@ module.exports = {
     });
 
     // styles: css、sass
-    const getStyleLoaders = cssOptions => {
-      return [
+    const getStyleLoaders = (cssOptions = {}, preProcessor) => {
+      const loaders = [
+        dev &&
+          !isServer && {
+            loader: require.resolve("style-loader"),
+            options: {
+              attributes: {
+                nonce: process.env.cspNonce
+              }
+            }
+          },
+        !dev &&
+          !isServer && {
+            loader: MiniCssExtractPlugin.loader,
+            options: {}
+          }
+      ].filter(Boolean);
+      if (loaders.length) {
+        cssOptions.importLoaders = loaders.length;
+      }
+      loaders.push(
         {
           loader: require.resolve("css-loader"),
           options: {
@@ -64,10 +99,10 @@ module.exports = {
         {
           loader: require.resolve("postcss-loader"),
           options: {
-            ident: "postcss",
+            // ident: "postcss",
             plugins: () => [
-              require.resolve("postcss-flexbugs-fixes"),
-              require.resolve("postcss-preset-env")({
+              postcssFlexFixPlugin,
+              postcssPresetEnvPlugin({
                 autoprefixer: {
                   flexbox: "no-2009"
                 },
@@ -78,7 +113,24 @@ module.exports = {
             sourceMap: !dev
           }
         }
-      ].filter(Boolean);
+      );
+      if (preProcessor) {
+        loaders.push(
+          {
+            loader: require.resolve("resolve-url-loader"),
+            options: {
+              sourceMap: !dev
+            }
+          },
+          {
+            loader: require.resolve(preProcessor),
+            options: {
+              sourceMap: true
+            }
+          }
+        );
+      }
+      return loaders.filter(Boolean);
     };
 
     if (!dev) {
@@ -107,21 +159,39 @@ module.exports = {
           }
         })
       );
+
+      if (!isServer) {
+        config.plugins.push(
+          new MiniCssExtractPlugin({
+            filename: "static/css/[contenthash].css",
+            chunkFilename: "static/css/[contenthash].chunk.css"
+          })
+        );
+      }
+    }
+
+    // ANALYZE=true yarn build
+    if (process.env.ANALYZE) {
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: "static",
+          reportFilename: isServer
+            ? "../analyze/server.html"
+            : "./analyze/client.html"
+        })
+      );
     }
 
     const styleRules = [
       {
         test: cssRegex,
         exclude: cssModuleRegex,
-        use: getStyleLoaders({
-          importLoaders: 1
-        }),
+        use: getStyleLoaders(),
         sideEffects: true
       },
       {
         test: cssModuleRegex,
         use: getStyleLoaders({
-          importLoaders: 1,
           modules: {
             getLocalIdent: getCSSModuleLocalIdent
           }
@@ -130,23 +200,17 @@ module.exports = {
       {
         test: sassRegex,
         exclude: sassModuleRegex,
-        use: getStyleLoaders(
-          {
-            importLoaders: 2
-          },
-          require.resolve("sass-loader")
-        )
+        use: getStyleLoaders({}, "sass-loader")
       },
       {
         test: sassModuleRegex,
         use: getStyleLoaders(
           {
-            importLoaders: 2,
             modules: {
               getLocalIdent: getCSSModuleLocalIdent
             }
           },
-          require.resolve("sass-loader")
+          "sass-loader"
         )
       }
     ];
@@ -155,11 +219,9 @@ module.exports = {
     if (ruleConfig) {
       ruleConfig.push(styleRules);
     } else {
-      config.module.rules.push({
-        oneOf: styleRules
-      });
+      config.module.rules.push(...styleRules);
     }
-
+    // console.log(JSON.stringify(config.module.rules))
     return config;
   }
 };

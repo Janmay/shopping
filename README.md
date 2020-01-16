@@ -1,0 +1,4 @@
+- css and css module
+- sass and sass module
+- csp (content security policy) nonce
+- mock data: easy-mock with docker
