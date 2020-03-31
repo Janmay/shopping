@@ -15,7 +15,7 @@
     "@material-ui/styles": "^4.7.1",
     "@zeit/next-sass": "^1.0.1",
     "helmet": "^3.21.2",
-    "next": "9.1.6",
+    "next": "9.3.2",
     "path": "^0.12.7",
     "react": "16.12.0",
     "react-dom": "16.12.0",
