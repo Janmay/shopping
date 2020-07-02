@@ -1,49 +1,32 @@
 import React from "react";
-import Document, {
-  DocumentContext,
-  Head,
-  Main,
-  NextScript
-} from "next/document";
-import { ServerStyleSheets } from "@material-ui/core/styles";
+import Document, { Head, Main, NextScript } from "next/document";
+import crypto from "crypto";
+
+const cspHashOf = (text: string) => {
+  const hash = crypto.createHash("sha256");
+  hash.update(text);
+  return `'sha256-${hash.digest("base64")}'`;
+};
 
 export default class extends Document<{ nonce: string }> {
-  static async getInitialProps(ctx: DocumentContext) {
-    // material ui styles
-    const sheets = new ServerStyleSheets();
-    const originalRenderPage = ctx.renderPage;
-
-    ctx.renderPage = () =>
-      originalRenderPage({
-        enhanceApp: App => props => sheets.collect(<App {...props} />)
-      });
-
-    // csp nonce
-    const nonce = process.env.cspNonce;
-
-    const initialProps = await Document.getInitialProps(ctx);
-
-    return {
-      ...initialProps,
-      nonce,
-      styles: [
-        ...React.Children.toArray(initialProps.styles),
-        sheets.getStyleElement({ nonce })
-      ]
-    };
-  }
-
   render() {
-    const { nonce } = this.props;
+    let csp = `default-src 'self'; script-src 'self' ${cspHashOf(
+      NextScript.getInlineScriptSource(this.props)
+    )}`;
+    if (process.env.NODE_ENV !== "production") {
+      csp = `style-src 'self' 'unsafe-inline'; font-src 'self' data:; default-src 'self'; script-src 'unsafe-eval' 'self' ${cspHashOf(
+        NextScript.getInlineScriptSource(this.props)
+      )}`;
+    }
 
     return (
       <html>
-        <Head nonce={nonce}>
-          <meta property="csp-nonce" content={`nonce-${nonce}`} />
+        <Head>
+          <meta httpEquiv="Content-Security-Policy" content={csp} />
         </Head>
         <body>
           <Main />
-          <NextScript nonce={nonce} />
+          <NextScript />
         </body>
       </html>
     );

@@ -10,7 +10,7 @@ const BundleAnalyzerPlugin = require("webpack-bundle-analyzer")
   .BundleAnalyzerPlugin;
 
 const appDirectory = process.cwd();
-const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
+const resolveApp = (relativePath) => path.resolve(appDirectory, relativePath);
 
 const appSrc = [resolveApp("components"), resolveApp("pages")];
 
@@ -20,12 +20,7 @@ const cssModuleRegex = /\.module\.css$/;
 const sassRegex = /\.(scss|sass)$/;
 const sassModuleRegex = /\.module\.(scss|sass)$/;
 
-const getCSSModuleLocalIdent = (
-  context,
-  localIdentName,
-  localName,
-  options
-) => {
+const getCSSModuleLocalIdent = (context, localIdentName, localName) => {
   if (context.resourcePath.includes("node_modules")) return localName;
   const match = context.resourcePath.match(/(components|pages)(.*)/);
   if (match && match[2]) {
@@ -33,8 +28,8 @@ const getCSSModuleLocalIdent = (
     const arr = slash(cssPath)
       .replace(/\/index$/, "")
       .split("/")
-      .map(p => p.replace(/([A-Z])/g, "-$1"))
-      .map(p => p.toLowerCase());
+      .map((p) => p.replace(/([A-Z])/g, "-$1"))
+      .map((p) => p.toLowerCase());
     return `ec${arr.join("-")}-${localName}`.replace(/--/g, "-");
   }
   return localName;
@@ -53,7 +48,7 @@ module.exports = {
   target: "server",
   distDir: "build",
   poweredByHeader: false,
-  webpack: (config, { dev, isServer, defaultLoaders }) => {
+  webpack: (config, { dev, isServer }) => {
     // eslint
     config.module.rules.unshift({
       test: /\.(js|jsx|ts|tsx)$/,
@@ -63,8 +58,8 @@ module.exports = {
       options: {
         cache: true,
         eslintPath: require.resolve("eslint"),
-        formatter: require("eslint-formatter-friendly")
-      }
+        formatter: require("eslint-formatter-friendly"),
+      },
     });
 
     // styles: css、sass
@@ -75,15 +70,15 @@ module.exports = {
             loader: require.resolve("style-loader"),
             options: {
               attributes: {
-                nonce: process.env.cspNonce
-              }
-            }
+                nonce: process.env.cspNonce,
+              },
+            },
           },
         !dev &&
           !isServer && {
             loader: MiniCssExtractPlugin.loader,
-            options: {}
-          }
+            options: {},
+          },
       ].filter(Boolean);
       if (loaders.length) {
         cssOptions.importLoaders = loaders.length;
@@ -93,8 +88,8 @@ module.exports = {
           loader: require.resolve("css-loader"),
           options: {
             sourceMap: !dev,
-            ...cssOptions
-          }
+            ...cssOptions,
+          },
         },
         {
           loader: require.resolve("postcss-loader"),
@@ -104,14 +99,14 @@ module.exports = {
               postcssFlexFixPlugin,
               postcssPresetEnvPlugin({
                 autoprefixer: {
-                  flexbox: "no-2009"
+                  flexbox: "no-2009",
                 },
-                stage: 3
+                stage: 3,
               }),
-              postcssNormalize()
+              postcssNormalize(),
             ],
-            sourceMap: !dev
-          }
+            sourceMap: !dev,
+          },
         }
       );
       if (preProcessor) {
@@ -119,14 +114,14 @@ module.exports = {
           {
             loader: require.resolve("resolve-url-loader"),
             options: {
-              sourceMap: !dev
-            }
+              sourceMap: !dev,
+            },
           },
           {
             loader: require.resolve(preProcessor),
             options: {
-              sourceMap: true
-            }
+              sourceMap: true,
+            },
           }
         );
       }
@@ -144,19 +139,19 @@ module.exports = {
             parser: safePostCssParser,
             map: {
               inline: false,
-              annotation: true
-            }
+              annotation: true,
+            },
           },
           cssProcessorPluginOptions: {
             preset: [
               "default",
               {
                 minifyFontValues: {
-                  removeQuotes: false
-                }
-              }
-            ]
-          }
+                  removeQuotes: false,
+                },
+              },
+            ],
+          },
         })
       );
 
@@ -164,7 +159,7 @@ module.exports = {
         config.plugins.push(
           new MiniCssExtractPlugin({
             filename: "static/css/[contenthash].css",
-            chunkFilename: "static/css/[contenthash].chunk.css"
+            chunkFilename: "static/css/[contenthash].chunk.css",
           })
         );
       }
@@ -177,7 +172,7 @@ module.exports = {
           analyzerMode: "static",
           reportFilename: isServer
             ? "../analyze/server.html"
-            : "./analyze/client.html"
+            : "./analyze/client.html",
         })
       );
     }
@@ -187,41 +182,41 @@ module.exports = {
         test: cssRegex,
         exclude: cssModuleRegex,
         use: getStyleLoaders(),
-        sideEffects: true
+        sideEffects: true,
       },
       {
         test: cssModuleRegex,
         use: getStyleLoaders({
           modules: {
-            getLocalIdent: getCSSModuleLocalIdent
-          }
-        })
+            getLocalIdent: getCSSModuleLocalIdent,
+          },
+        }),
       },
       {
         test: sassRegex,
         exclude: sassModuleRegex,
-        use: getStyleLoaders({}, "sass-loader")
+        use: getStyleLoaders({}, "sass-loader"),
       },
       {
         test: sassModuleRegex,
         use: getStyleLoaders(
           {
             modules: {
-              getLocalIdent: getCSSModuleLocalIdent
-            }
+              getLocalIdent: getCSSModuleLocalIdent,
+            },
           },
           "sass-loader"
-        )
-      }
+        ),
+      },
     ];
 
-    const ruleConfig = config.module.rules.find(r => r.oneOf);
+    const ruleConfig = config.module.rules.find((r) => r.oneOf);
     if (ruleConfig) {
-      ruleConfig.push(styleRules);
+      ruleConfig.oneOf.push(...styleRules);
     } else {
       config.module.rules.push(...styleRules);
     }
     // console.log(JSON.stringify(config.module.rules))
     return config;
-  }
+  },
 };
